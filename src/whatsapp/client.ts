@@ -7,6 +7,8 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
 import { mkdirSync } from 'fs'
+import { randomBytes } from 'crypto'
+import { config } from '../config.js'
 import { logger } from '../logger.js'
 import type { MessageRouter } from '../router/messageRouter.js'
 
@@ -48,11 +50,18 @@ export class WhatsAppClient {
     const { version, isLatest } = await fetchLatestBaileysVersion()
     logger.info({ version, isLatest }, 'Baileys version resolved')
 
+    // Baileys' ILogger interface is satisfied by pino (it's what Baileys uses
+    // internally). We pass a child logger scoped to 'baileys' and suppress its
+    // verbose DEBUG/TRACE output in production by capping at 'warn'.
+    const baileysLogger = logger.child({ module: 'baileys' })
+    baileysLogger.level = config.nodeEnv === 'development' ? 'info' : 'warn'
+
     this.sock = makeWASocket({
       version,
       auth: state,
       printQRInTerminal: true,
-      logger: logger.child({ module: 'baileys' }) as Parameters<typeof makeWASocket>[0]['logger'],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      logger: baileysLogger as any,
     })
 
     this.sock.ev.on('creds.update', saveCreds)
@@ -134,11 +143,22 @@ export class WhatsAppClient {
 
     if (!body.trim()) return
 
-    const messageId = msg.key.id ?? `${Date.now()}`
+    // Use Baileys message ID; fall back to a crypto random (Date.now() alone
+    // collides when multiple messages arrive in the same millisecond)
+    const messageId = msg.key.id ?? randomBytes(8).toString('hex')
+
     const senderNumber = senderJid.split('@')[0]
-    const timestamp = typeof msg.messageTimestamp === 'number'
-      ? msg.messageTimestamp * 1000
-      : Date.now()
+
+    // msg.messageTimestamp is typed as number | Long | null | undefined.
+    // The `Long` type (from the `long` npm package used by protobufjs) has a
+    // .toNumber() method. A plain typeof check for 'number' misses Long values,
+    // causing all Long-typed timestamps to silently fall back to Date.now().
+    const ts = msg.messageTimestamp
+    const timestamp = ts == null
+      ? Date.now()
+      : typeof ts === 'number'
+        ? ts * 1000
+        : (ts as { toNumber(): number }).toNumber() * 1000
 
     const replyText = await this.router.route({
       messageId,

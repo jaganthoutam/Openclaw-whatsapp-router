@@ -5,20 +5,16 @@
  *
  *   import { registerWhatsAppRouterPlugin } from './extension/plugin.js'
  *
- *   // Inside your Fastify app setup, after loading openclaw.json:
  *   if (openclawConfig.whatsappRouter?.enabled) {
  *     await app.register(registerWhatsAppRouterPlugin, {
  *       routerSecret:   openclawConfig.whatsappRouter.routerSecret,
- *       openClawClient: new OpenClawInternalClient(),   // your real client
- *       prefix:         '',                             // optional route prefix
+ *       openClawClient: new OpenClawInternalClient(),
  *     })
  *   }
  *
- * The plugin registers:
- *   POST <prefix>/router/inbound   — receives messages from the router service
- *   GET  <prefix>/router/health    — extension liveness (for router to probe)
- *
- * Authentication is checked on every request via X-Router-Secret header.
+ * Routes registered:
+ *   POST /router/inbound   — receives messages from the WhatsApp Router
+ *   GET  /router/health    — liveness probe
  */
 
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
@@ -28,23 +24,25 @@ export const registerWhatsAppRouterPlugin: FastifyPluginAsync<WhatsAppRouterPlug
   async (app: FastifyInstance, opts: WhatsAppRouterPluginOptions): Promise<void> => {
     const { routerSecret, openClawClient } = opts
 
-    // ── Auth: every request to this plugin must carry the shared secret ────
+    // ── Auth guard ─────────────────────────────────────────────────────────
+    // IMPORTANT: must `return` after reply.send() in async Fastify hooks,
+    // otherwise the request handler still executes after the 401 is sent.
     app.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
       const incoming = request.headers['x-router-secret']
       if (!incoming || incoming !== routerSecret) {
         app.log.warn({ ip: request.ip, url: request.url }, '[wa-router-ext] Rejected – bad X-Router-Secret')
-        reply.status(401).send({ error: 'Unauthorized' })
+        return reply.status(401).send({ error: 'Unauthorized' })
       }
     })
 
-    // ── Liveness probe — router can use this to confirm extension is up ────
+    // ── Liveness probe ─────────────────────────────────────────────────────
     app.get('/router/health', async () => ({
       status: 'ok',
       extension: 'whatsapp-router',
       timestamp: new Date().toISOString(),
     }))
 
-    // ── Main inbound route ─────────────────────────────────────────────────
+    // ── Inbound route ──────────────────────────────────────────────────────
     app.post<{ Body: InboundPayload }>(
       '/router/inbound',
       {
@@ -67,21 +65,22 @@ export const registerWhatsAppRouterPlugin: FastifyPluginAsync<WhatsAppRouterPlug
 
         app.log.info({ messageId, tenantId, sender: senderNumber }, '[wa-router-ext] Inbound message')
 
-        const result = await openClawClient.processMessage({
-          messageId,
-          senderNumber,
-          tenantId,
-          body,
-          timestamp,
-        })
+        let replyText: string
+        let metadata: Record<string, unknown> | undefined
+
+        try {
+          const result = await openClawClient.processMessage({
+            messageId, senderNumber, tenantId, body, timestamp,
+          })
+          replyText = result.replyText
+          metadata  = result.metadata
+        } catch (err) {
+          app.log.error({ err, messageId, tenantId }, '[wa-router-ext] processMessage failed')
+          return reply.status(500).send({ error: 'Processing failed' })
+        }
 
         app.log.info({ messageId }, '[wa-router-ext] Processing complete')
-
-        return reply.send({
-          tenantId,
-          replyText: result.replyText,
-          metadata:  result.metadata,
-        })
+        return reply.send({ tenantId, replyText, metadata })
       },
     )
   }

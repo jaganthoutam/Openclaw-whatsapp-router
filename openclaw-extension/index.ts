@@ -183,10 +183,12 @@ export async function registerWhatsAppExtensionFastify(
 ): Promise<void> {
   const { routerSecret, processMessage } = options
 
+  // IMPORTANT: must `return` in async Fastify hooks — without it the handler
+  // still executes after the 401 is sent, bypassing auth entirely.
   app.addHook('preHandler', async (req: any, reply: any) => {
     const incoming = req.headers['x-router-secret']
     if (!incoming || incoming !== routerSecret) {
-      reply.status(401).send({ error: 'Unauthorized' })
+      return reply.status(401).send({ error: 'Unauthorized' })
     }
   })
 
@@ -216,7 +218,13 @@ export async function registerWhatsAppExtensionFastify(
 
     app.log?.info(`[wa-ext] Inbound tenant=${tenantId} sender=${senderNumber} msgId=${messageId}`)
 
-    const replyText = await processMessage(payload)
+    let replyText: string | null | undefined
+    try {
+      replyText = await processMessage(payload)
+    } catch (err) {
+      console.error(`[wa-ext] processMessage error tenant=${tenantId} msgId=${messageId}`, err)
+      return reply.status(500).send({ error: 'Processing failed' })
+    }
 
     if (!replyText) {
       return reply.send({ tenantId, replyText: '', metadata: { skipped: true } } satisfies RouterOutboundResponse)

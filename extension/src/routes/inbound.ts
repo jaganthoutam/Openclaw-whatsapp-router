@@ -6,18 +6,18 @@ import { config } from '../config.js'
 import { logger } from '../logger.js'
 import type { IOpenClawClient } from '../openclaw/IOpenClawClient.js'
 
-// Select client based on environment
 const openClawClient: IOpenClawClient = config.openclawBaseUrl
   ? new HttpOpenClawClient()
   : new MockOpenClawClient()
 
 export async function inboundRoutes(app: FastifyInstance): Promise<void> {
-  // Auth hook – validates shared secret on every request to this plugin
+  // IMPORTANT: must `return` after reply.send() in async Fastify hooks —
+  // without it the handler still executes after the 401 is sent.
   app.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     const secret = request.headers['x-router-secret']
     if (!secret || secret !== config.routerSecret) {
       logger.warn({ ip: request.ip }, 'Rejected request – invalid X-Router-Secret')
-      reply.status(401).send({ error: 'Unauthorized' })
+      return reply.status(401).send({ error: 'Unauthorized' })
     }
   })
 
@@ -29,38 +29,41 @@ export async function inboundRoutes(app: FastifyInstance): Promise<void> {
           type: 'object',
           required: ['messageId', 'senderNumber', 'tenantId', 'body', 'timestamp'],
           properties: {
-            messageId: { type: 'string' },
+            messageId:    { type: 'string' },
             senderNumber: { type: 'string' },
-            tenantId: { type: 'string' },
-            body: { type: 'string' },
-            timestamp: { type: 'number' },
+            tenantId:     { type: 'string' },
+            body:         { type: 'string' },
+            timestamp:    { type: 'number' },
           },
         },
       },
     },
     async (request, reply) => {
       const payload = request.body
+      const { messageId, tenantId, senderNumber } = payload
 
-      logger.info(
-        { messageId: payload.messageId, tenantId: payload.tenantId, sender: payload.senderNumber },
-        'Inbound message received',
-      )
+      logger.info({ messageId, tenantId, sender: senderNumber }, 'Inbound message received')
 
-      const result = await openClawClient.processMessage({
-        messageId: payload.messageId,
-        senderNumber: payload.senderNumber,
-        tenantId: payload.tenantId,
-        body: payload.body,
-        timestamp: payload.timestamp,
-      })
+      let replyText: string
+      let metadata: Record<string, unknown> | undefined
 
-      logger.info({ messageId: payload.messageId }, 'OpenClaw processing complete')
+      try {
+        const result = await openClawClient.processMessage({
+          messageId:    payload.messageId,
+          senderNumber: payload.senderNumber,
+          tenantId:     payload.tenantId,
+          body:         payload.body,
+          timestamp:    payload.timestamp,
+        })
+        replyText = result.replyText
+        metadata  = result.metadata
+      } catch (err) {
+        logger.error({ err, messageId, tenantId }, 'OpenClaw processMessage failed')
+        return reply.status(500).send({ error: 'Processing failed' })
+      }
 
-      return reply.send({
-        tenantId: payload.tenantId,
-        replyText: result.replyText,
-        metadata: result.metadata,
-      })
+      logger.info({ messageId }, 'OpenClaw processing complete')
+      return reply.send({ tenantId, replyText, metadata })
     },
   )
 }
