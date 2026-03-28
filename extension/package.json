@@ -1,8 +1,13 @@
 {
-  "name": "openclaw-extension",
+  "name": "openclaw-whatsapp-router-extension",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
+  "exports": {
+    ".": "./dist/plugin.js",
+    "./types": "./dist/types.js"
+  },
+  "main": "./dist/plugin.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
