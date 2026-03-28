@@ -1,0 +1,10 @@
+{
+  "tenants": [
+    {
+      "tenantId": "tenant-a",
+      "senderNumbers": ["919812345678"],
+      "openclawExtensionUrl": "http://localhost:8090/router/inbound",
+      "enabled": true
+    }
+  ]
+}
