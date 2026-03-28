@@ -4,14 +4,16 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
-    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "paths": {
+      "openclaw/plugin-sdk/core": ["./types/openclaw-sdk.d.ts"]
+    }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["index.ts", "setup-entry.ts", "src/**/*.ts", "types/**/*.d.ts"]
 }

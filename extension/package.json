@@ -1,27 +1,26 @@
 {
-  "name": "openclaw-whatsapp-router-extension",
-  "version": "0.1.0",
-  "private": false,
+  "name": "@openclaw/whatsapp-router",
+  "version": "1.0.0",
   "type": "module",
-  "exports": {
-    ".": "./dist/plugin.js",
-    "./types": "./dist/types.js"
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "setupEntry": "./setup-entry.ts",
+    "channel": {
+      "id": "whatsapp-router",
+      "label": "WhatsApp Router",
+      "blurb": "Connect OpenClaw to WhatsApp via the WhatsApp Router service."
+    }
   },
-  "main": "./dist/plugin.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js"
+    "test": "vitest run"
   },
-  "dependencies": {
-    "fastify": "^4.28.1",
-    "dotenv": "^16.4.5",
-    "pino": "^9.4.0"
+  "peerDependencies": {
+    "openclaw": "*"
   },
   "devDependencies": {
-    "tsx": "^4.19.1",
-    "typescript": "^5.6.2",
     "@types/node": "^22.7.4",
-    "pino-pretty": "^11.2.2"
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.9"
   }
 }
