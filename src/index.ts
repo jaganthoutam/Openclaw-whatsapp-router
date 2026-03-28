@@ -24,14 +24,16 @@ async function main(): Promise<void> {
     config.dedupTtlMs,
   )
 
+  // ── WhatsApp client (created before server so server can reference it) ────
+  const whatsappClient = new WhatsAppClient(config.whatsappSessionDir, messageRouter)
+
   // ── Admin HTTP server ──────────────────────────────────────────────────────
-  const app = createAdminServer(tenantStore)
+  const app = createAdminServer(tenantStore, whatsappClient)
   const server = app.listen(config.port, () => {
     logger.info({ port: config.port }, 'Admin API listening')
   })
 
   // ── WhatsApp connection ────────────────────────────────────────────────────
-  const whatsappClient = new WhatsAppClient(config.whatsappSessionDir, messageRouter)
   await whatsappClient.connect()
 
   // ── Graceful shutdown ──────────────────────────────────────────────────────
