@@ -39,6 +39,63 @@
 import type { WhatsAppExtensionOptions, RouterInboundPayload, RouterOutboundResponse } from './types.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Outbound sender — OpenClaw → Router → WhatsApp
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { OutboundSendRequest, OutboundSendResult } from './types.js'
+
+export interface OutboundSenderOptions {
+  /** Base URL of the WhatsApp Router service, e.g. "http://openclaw-router:3000" */
+  routerUrl:    string
+  /** Must match ROUTER_SECRET in the router service */
+  routerSecret: string
+  /** Your OpenClaw tenant ID */
+  tenantId:     string
+}
+
+/**
+ * Creates a send function for pushing outbound WhatsApp messages from OpenClaw.
+ * Use this in cron jobs, reminder schedulers, or any server-side notification.
+ *
+ * Example:
+ *
+ *   const sendWhatsApp = createOutboundSender({
+ *     routerUrl:    process.env.WHATSAPP_ROUTER_URL,
+ *     routerSecret: process.env.WHATSAPP_ROUTER_SECRET,
+ *     tenantId:     'tenant-a',
+ *   })
+ *
+ *   // In a cron job or reminder:
+ *   await sendWhatsApp('919812345678', 'Your 3pm meeting starts in 10 minutes.')
+ *   await sendWhatsApp('919812345678', 'Task "Fix login bug" is due today.')
+ */
+export function createOutboundSender(opts: OutboundSenderOptions) {
+  const { routerUrl, routerSecret, tenantId } = opts
+  const endpoint = `${routerUrl.replace(/\/$/, '')}/outbound/send`
+
+  return async function sendWhatsApp(to: string, message: string): Promise<OutboundSendResult> {
+    const body: OutboundSendRequest = { to, message, tenantId }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type':    'application/json',
+        'X-Router-Secret': routerSecret,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      throw new Error(`WhatsApp Router outbound HTTP ${response.status}: ${text}`)
+    }
+
+    return response.json() as Promise<OutboundSendResult>
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Express
 // ─────────────────────────────────────────────────────────────────────────────
 

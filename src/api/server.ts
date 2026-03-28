@@ -4,6 +4,7 @@ import type { WhatsAppClient } from '../whatsapp/client.js'
 import { healthRouter } from './routes/health.js'
 import { adminRouter } from './routes/admin.js'
 import { whatsappRouter } from './routes/whatsapp.js'
+import { outboundRouter } from './routes/outbound.js'
 import { logger } from '../logger.js'
 
 export function createAdminServer(tenantStore: ITenantStore, waClient?: WhatsAppClient) {
@@ -19,9 +20,11 @@ export function createAdminServer(tenantStore: ITenantStore, waClient?: WhatsApp
   app.use('/health', healthRouter)
   app.use('/admin', adminRouter(tenantStore))
 
-  // WhatsApp QR + status routes (only mounted when waClient is provided)
   if (waClient) {
+    // WhatsApp QR + status management
     app.use('/admin/whatsapp', whatsappRouter(waClient))
+    // Outbound send — called by OpenClaw extensions (X-Router-Secret auth)
+    app.use('/outbound', outboundRouter(waClient, tenantStore))
   }
 
   app.use((_req, res) => {

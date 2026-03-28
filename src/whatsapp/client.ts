@@ -96,6 +96,21 @@ export class WhatsAppClient {
     })
   }
 
+  /**
+   * Send a text message to any WhatsApp number.
+   * Called by the outbound API so OpenClaw can push reminders / cron messages.
+   *
+   * number: E.164 digits without '+', e.g. "919812345678"
+   */
+  async sendToNumber(number: string, text: string): Promise<void> {
+    if (this.status !== 'open' || !this.sock) {
+      throw new Error(`Cannot send — WhatsApp status is '${this.status}'`)
+    }
+    const jid = `${number}@s.whatsapp.net`
+    await this.sock.sendMessage(jid, { text })
+    logger.info({ to: number }, 'Outbound message sent')
+  }
+
   async stop(): Promise<void> {
     this.stopped = true
     this.status = 'closed'

@@ -28,6 +28,23 @@ export type ProcessMessageFn = (
   payload: RouterInboundPayload,
 ) => Promise<string | null | undefined>
 
+// ─── Outbound (OpenClaw → Router → WhatsApp) ─────────────────────────────────
+
+/** Body sent to POST /outbound/send on the router */
+export interface OutboundSendRequest {
+  to:       string   // E.164 without '+', e.g. "919812345678"
+  message:  string   // text to send
+  tenantId: string   // must match the registered tenant
+}
+
+/** Response from POST /outbound/send */
+export interface OutboundSendResult {
+  ok:      boolean
+  to:      string
+  tenantId: string
+  sentAt:  string   // ISO-8601
+}
+
 /** Options passed to registerWhatsAppExtension() */
 export interface WhatsAppExtensionOptions {
   /**
