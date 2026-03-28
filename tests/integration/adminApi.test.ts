@@ -158,3 +158,64 @@ describe('DELETE /admin/tenants/:id', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('POST /admin/tenants/:id/numbers', () => {
+  it('adds a number to an existing tenant', async () => {
+    const res = await request(server)
+      .post('/admin/tenants/seed-tenant/numbers')
+      .set(auth())
+      .send({ number: '919999900001' })
+    expect(res.status).toBe(201)
+    expect(res.body.tenant.senderNumbers).toContain('919999900001')
+    expect(res.body.addedNumber).toBe('919999900001')
+  })
+
+  it('returns 409 when number already exists on tenant', async () => {
+    // seed-tenant already has 911234567890
+    const res = await request(server)
+      .post('/admin/tenants/seed-tenant/numbers')
+      .set(auth())
+      .send({ number: '911234567890' })
+    expect(res.status).toBe(409)
+  })
+
+  it('returns 400 for invalid number format', async () => {
+    const res = await request(server)
+      .post('/admin/tenants/seed-tenant/numbers')
+      .set(auth())
+      .send({ number: 'not-a-number' })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 404 for unknown tenant', async () => {
+    const res = await request(server)
+      .post('/admin/tenants/ghost/numbers')
+      .set(auth())
+      .send({ number: '919999900002' })
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('DELETE /admin/tenants/:id/numbers/:number', () => {
+  it('removes a number from a tenant', async () => {
+    // First add one to remove
+    await request(server)
+      .post('/admin/tenants/seed-tenant/numbers')
+      .set(auth())
+      .send({ number: '919999900010' })
+
+    const res = await request(server)
+      .delete('/admin/tenants/seed-tenant/numbers/919999900010')
+      .set(auth())
+    expect(res.status).toBe(200)
+    expect(res.body.tenant.senderNumbers).not.toContain('919999900010')
+    expect(res.body.removedNumber).toBe('919999900010')
+  })
+
+  it('returns 404 for number not on tenant', async () => {
+    const res = await request(server)
+      .delete('/admin/tenants/seed-tenant/numbers/910000000000')
+      .set(auth())
+    expect(res.status).toBe(404)
+  })
+})

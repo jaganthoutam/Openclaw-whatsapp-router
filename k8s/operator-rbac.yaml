@@ -1,0 +1,50 @@
+---
+# ServiceAccount used by the bot-manager operator pod
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wa-router-operator
+  namespace: openclaw
+  labels:
+    app: wa-router-operator
+
+---
+# ClusterRole — grants the operator access to ConfigMaps and Deployments
+# across all tenant namespaces so it can patch openclaw.json and trigger restarts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wa-router-operator
+  labels:
+    app: wa-router-operator
+rules:
+  # Read + patch ConfigMaps (contains openclaw.json)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "patch", "update"]
+
+  # Read + patch Deployments (trigger rolling restart)
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch", "update"]
+
+  # Read pod status (for rollout progress checks)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: wa-router-operator
+  labels:
+    app: wa-router-operator
+subjects:
+  - kind: ServiceAccount
+    name: wa-router-operator
+    namespace: openclaw
+roleRef:
+  kind: ClusterRole
+  name: wa-router-operator
+  apiGroup: rbac.authorization.k8s.io

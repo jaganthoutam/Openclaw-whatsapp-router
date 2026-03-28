@@ -1,0 +1,86 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wa-router-operator
+  namespace: openclaw
+  labels:
+    app: wa-router-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wa-router-operator
+  template:
+    metadata:
+      labels:
+        app: wa-router-operator
+    spec:
+      serviceAccountName: wa-router-operator    # bound to ClusterRole above
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
+        - name: operator
+          image: openclaw-wa-router-operator:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: OPERATOR_PORT
+              value: "8080"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: ROUTER_SERVICE_URL
+              value: "http://openclaw-router.openclaw.svc.cluster.local:3000"
+            - name: CONFIGMAP_KEY
+              value: "openclaw.json"
+            - name: CONFIGMAP_PREFIX
+              value: "openclaw-config-"
+            - name: DEPLOYMENT_PREFIX
+              value: "openclaw-"
+            # SHARED_NAMESPACE: uncomment if all tenants are in one namespace
+            # - name: SHARED_NAMESPACE
+            #   value: "openclaw-tenants"
+            - name: OPERATOR_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: OPERATOR_SECRET
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wa-router-operator
+  namespace: openclaw
+  labels:
+    app: wa-router-operator
+spec:
+  selector:
+    app: wa-router-operator
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
