@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/whatsapp-router",
+  "name": "whatsapp-router",
   "version": "1.0.0",
   "type": "module",
   "openclaw": {
