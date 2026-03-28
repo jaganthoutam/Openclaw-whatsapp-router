@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: openclaw-extension
+  namespace: openclaw
+  labels:
+    app: openclaw-extension
+spec:
+  selector:
+    app: openclaw-extension
+  ports:
+    - name: http
+      port: 8090
+      targetPort: 8090
+  type: ClusterIP

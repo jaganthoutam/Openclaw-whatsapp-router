@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openclaw-config
+  namespace: openclaw
+data:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  ROUTER_PORT: "3000"
+  EXTENSION_PORT: "8090"
+  TENANT_REGISTRY_PATH: "/data/tenant-registry.json"
+  WHATSAPP_SESSION_DIR: "/data/whatsapp-session"
+  # Set to real OpenClaw URL when available; leave blank for mock
+  OPENCLAW_BASE_URL: ""

@@ -1,6 +1,13 @@
 node_modules/
 dist/
-auth/
 .env
 coverage/
-dist-tests/
+
+# WhatsApp session credentials — never commit
+whatsapp-session/
+auth/
+
+# Extension build artifacts
+extension/node_modules/
+extension/dist/
+extension/.env

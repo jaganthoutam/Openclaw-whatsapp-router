@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openclaw-extension
+  namespace: openclaw
+  labels:
+    app: openclaw-extension
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: openclaw-extension
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: openclaw-extension
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
+        - name: extension
+          image: openclaw-extension:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8090
+              name: http
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: openclaw-config
+                  key: EXTENSION_PORT
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: openclaw-config
+                  key: NODE_ENV
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: openclaw-config
+                  key: LOG_LEVEL
+            - name: OPENCLAW_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: openclaw-config
+                  key: OPENCLAW_BASE_URL
+            - name: ROUTER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: ROUTER_SECRET
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
