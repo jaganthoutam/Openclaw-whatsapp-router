@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  # ── Extension service (starts first — router depends on it) ────────────────
+  extension:
+    build:
+      context: ./extension
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: "8090"
+      NODE_ENV: production
+      LOG_LEVEL: info
+      ROUTER_SECRET: "${ROUTER_SECRET:-router-secret}"
+      OPENCLAW_BASE_URL: "${OPENCLAW_BASE_URL:-}"
+    ports:
+      - "8090:8090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Router service ─────────────────────────────────────────────────────────
+  router:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      extension:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      NODE_ENV: production
+      LOG_LEVEL: info
+      ADMIN_SECRET: "${ADMIN_SECRET:-changeme}"
+      ROUTER_SECRET: "${ROUTER_SECRET:-router-secret}"
+      TENANT_REGISTRY_PATH: /data/tenant-registry.json
+      WHATSAPP_SESSION_DIR: /data/whatsapp-session
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist WhatsApp session credentials across restarts
+      - whatsapp_session:/data/whatsapp-session
+      # Persist mutable tenant registry
+      - tenant_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  whatsapp_session:
+  tenant_data:

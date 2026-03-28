@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openclaw-router
+  namespace: openclaw
+  labels:
+    app: openclaw-router
+spec:
+  # WhatsApp Web only allows a single session per router number.
+  # Keep replicas at 1. Use StatefulSet if session sharing is added later.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openclaw-router
+  strategy:
+    type: Recreate   # Avoid two instances fighting over the WA session
+  template:
+    metadata:
+      labels:
+        app: openclaw-router
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
+        - name: router
+          image: openclaw-router:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: openclaw-config
+                  key: ROUTER_PORT
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: openclaw-config
+                  key: NODE_ENV
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: openclaw-config
+                  key: LOG_LEVEL
+            - name: TENANT_REGISTRY_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: openclaw-config
+                  key: TENANT_REGISTRY_PATH
+            - name: WHATSAPP_SESSION_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: openclaw-config
+                  key: WHATSAPP_SESSION_DIR
+            - name: ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: ADMIN_SECRET
+            - name: ROUTER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: ROUTER_SECRET
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          volumeMounts:
+            - name: session-storage
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+      volumes:
+        - name: session-storage
+          persistentVolumeClaim:
+            claimName: openclaw-router-pvc

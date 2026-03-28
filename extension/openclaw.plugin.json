@@ -1,0 +1,45 @@
+{
+  "id": "whatsapp-router",
+  "name": "WhatsApp Router",
+  "version": "1.0.0",
+  "description": "Receive and send WhatsApp messages via the WhatsApp Router service.",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "channels": {
+        "type": "object",
+        "properties": {
+          "whatsapp-router": {
+            "type": "object",
+            "required": ["routerUrl", "routerSecret", "tenantId"],
+            "properties": {
+              "routerUrl": {
+                "type": "string",
+                "description": "Base URL of the WhatsApp Router service (e.g. http://whatsapp-router:3000)"
+              },
+              "routerSecret": {
+                "type": "string",
+                "description": "Shared secret — must match ROUTER_SECRET in the router service"
+              },
+              "tenantId": {
+                "type": "string",
+                "description": "This OpenClaw instance's tenant ID registered in the router"
+              },
+              "allowFrom": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "E.164 phone numbers (without +) allowed to message this bot"
+              },
+              "dmPolicy": {
+                "type": "string",
+                "enum": ["allowlist", "open"],
+                "default": "allowlist",
+                "description": "DM security policy"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
